@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>TN Child Support Estimator</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#111827; --line:#1f2937; --muted:#94a3b8;
+    --text:#e5e7eb; --accent:#22d3ee; --accent2:#a78bfa; --good:#34d399; --warn:#fbbf24;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.45 system-ui,Segoe UI,Roboto,Arial;background:linear-gradient(180deg,#0b1020,#0f172a);color:var(--text);min-height:100vh}
+  header{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  header h1{margin:0;font-size:18px;letter-spacing:.3px}
+  header .sub{color:var(--muted);font-size:12px}
+  .wrap{max-width:1100px;margin:0 auto;padding:18px 22px;display:grid;grid-template-columns:1.1fr .9fr;gap:18px}
+  @media (max-width: 880px){.wrap{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .card h2{margin:0 0 10px;font-size:14px;color:var(--accent);letter-spacing:.4px;text-transform:uppercase}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+  label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+  input[type=number],select{width:100%;background:#0b1220;border:1px solid var(--line);color:var(--text);padding:8px 10px;border-radius:8px;font:inherit}
+  input[type=number]:focus,select:focus{outline:1px solid var(--accent);border-color:var(--accent)}
+  .row{display:flex;gap:10px;align-items:center;margin-top:6px}
+  .row label{margin:0}
+  .pill{display:inline-flex;gap:6px;align-items:center;padding:3px 8px;border:1px solid var(--line);border-radius:999px;font-size:11px;color:var(--muted)}
+  .out{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;font-variant-numeric:tabular-nums}
+  .out .k{color:var(--muted)}
+  .out .v{text-align:right}
+  .total{margin-top:14px;padding:14px;background:#0b1220;border:1px dashed var(--accent2);border-radius:10px}
+  .total .amt{font-size:28px;font-weight:600;color:var(--good)}
+  .total .who{color:var(--muted);font-size:12px;margin-top:2px}
+  .footnote{margin-top:14px;color:var(--muted);font-size:11px;line-height:1.5}
+  .seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{flex:1;background:transparent;color:var(--muted);border:0;padding:8px;cursor:pointer}
+  .seg button.on{background:#0b1220;color:var(--accent)}
+  hr{border:0;border-top:1px solid var(--line);margin:14px 0}
+  details{margin-top:8px}
+  summary{cursor:pointer;color:var(--muted);font-size:12px}
+  table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+  th,td{text-align:right;padding:4px 6px;border-bottom:1px solid var(--line)}
+  th:first-child,td:first-child{text-align:left}
+</style>
+</head>
+<body>
+<header>
+  <h1>Tennessee Child Support Estimator</h1>
+  <span class="sub">Income Shares model &mdash; simplified estimator, not legal advice</span>
+</header>
+
+<div class="wrap">
+  <section class="card">
+    <h2>Inputs</h2>
+
+    <div class="grid">
+      <div>
+        <label>Children subject to this order</label>
+        <select id="kids">
+          <option value="1">1</option><option value="2">2</option>
+          <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        </select>
+      </div>
+      <div>
+        <label>Primary Residential Parent (PRP)</label>
+        <div class="seg" id="prpSeg">
+          <button data-v="A" class="on">Parent A</button>
+          <button data-v="B">Parent B</button>
+        </div>
+      </div>
+    </div>
+
+    <hr/>
+
+    <h2 style="color:var(--accent2)">Parent A</h2>
+    <div class="grid">
+      <div>
+        <label>Gross monthly income ($)</label>
+        <input id="aIncome" type="number" min="0" step="50" value="4000"/>
+      </div>
+      <div>
+        <label>Days/year with this parent</label>
+        <input id="aDays" type="number" min="0" max="365" step="1" value="285"/>
+      </div>
+      <div>
+        <label>Self-employment tax credit ($/mo)</label>
+        <input id="aSE" type="number" min="0" step="10" value="0"/>
+      </div>
+      <div>
+        <label>Other children in home (qualified)</label>
+        <input id="aOther" type="number" min="0" max="5" step="1" value="0"/>
+      </div>
+      <div>
+        <label>Court-ordered support paid ($/mo)</label>
+        <input id="aCO" type="number" min="0" step="10" value="0"/>
+      </div>
+      <div>
+        <label>Health-insurance premium for child ($/mo)</label>
+        <input id="aHI" type="number" min="0" step="10" value="0"/>
+      </div>
+      <div>
+        <label>Work-related childcare ($/mo)</label>
+        <input id="aCC" type="number" min="0" step="10" value="0"/>
+      </div>
+      <div>
+        <label>Recurring uninsured medical ($/mo)</label>
+        <input id="aMed" type="number" min="0" step="10" value="0"/>
+      </div>
+    </div>
+
+    <hr/>
+
+    <h2 style="color:var(--accent2)">Parent B</h2>
+    <div class="grid">
+      <div>
+        <label>Gross monthly income ($)</label>
+        <input id="bIncome" type="number" min="0" step="50" value="6000"/>
+      </div>
+      <div>
+        <label>Days/year with this parent</label>
+        <input id="bDays" type="number" min="0" max="365" step="1" value="80"/>
+      </div>
+      <div>
+        <label>Self-employment tax credit ($/mo)</label>
+        <input id="bSE" type="number" min="0" step="10" value="0"/>
+      </div>
+      <div>
+        <label>Other children in home (qualified)</label>
+        <input id="bOther" type="number" min="0" max="5" step="1" value="0"/>
+      </div>
+      <div>
+        <label>Court-ordered support paid ($/mo)</label>
+        <input id="bCO" type="number" min="0" step="10" value="0"/>
+      </div>
+      <div>
+        <label>Health-insurance premium for child ($/mo)</label>
+        <input id="bHI" type="number" min="0" step="10" value="0"/>
+      </div>
+      <div>
+        <label>Work-related childcare ($/mo)</label>
+        <input id="bCC" type="number" min="0" step="10" value="0"/>
+      </div>
+      <div>
+        <label>Recurring uninsured medical ($/mo)</label>
+        <input id="bMed" type="number" min="0" step="10" value="0"/>
+      </div>
+    </div>
+
+    <details>
+      <summary>How the calc works</summary>
+      <ol style="color:var(--muted);font-size:12px;line-height:1.6">
+        <li>Adjust each parent's gross income (subtract self-employment tax, other-children credit, court-ordered support paid).</li>
+        <li>Sum to Combined Adjusted Gross Income (cAGI).</li>
+        <li>Look up Basic Child Support Obligation (BCSO) for cAGI &amp; child count.</li>
+        <li>Add monthly add-ons (health-insurance premium for child, work-related childcare, recurring uninsured medical) to get Adjusted Support Obligation.</li>
+        <li>Each parent pays their pro-rata share of the obligation by income.</li>
+        <li>Parenting-time adjustment: if Alternate Residential Parent (ARP) has &ge;92 days/yr, apply variable-multiplier credit (BCSO &times; 1.75 &times; ARP-day-share).</li>
+        <li>Credit each parent for add-ons they directly pay; net the result; ARP pays PRP the balance.</li>
+      </ol>
+    </details>
+  </section>
+
+  <section class="card">
+    <h2>Result</h2>
+    <div class="out" id="resOut"></div>
+    <div class="total">
+      <div class="amt" id="totalAmt">$0</div>
+      <div class="who" id="totalWho">&mdash;</div>
+    </div>
+
+    <details>
+      <summary>BCSO lookup table (excerpt &mdash; monthly $)</summary>
+      <table>
+        <thead><tr><th>cAGI</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th></tr></thead>
+        <tbody id="schedBody"></tbody>
+      </table>
+    </details>
+
+    <p class="footnote">
+      Estimator uses a simplified Income Shares schedule approximating TN DHS Rule 1240-02-04. Real worksheet results
+      can differ &mdash; deviation factors, low-income reserve, multi-family adjustments, and the official BCSO table
+      are not modeled in full. For an authoritative number use the state worksheet.
+    </p>
+  </section>
+</div>
+
+<script>
+// Approximation of TN BCSO schedule (combined AGI / month -> BCSO for 1..5 children)
+const SCHED = [
+  [   0,    0,    0,    0,    0,    0],
+  [1000,  211,  320,  401,  449,  494],
+  [1500,  287,  440,  551,  616,  678],
+  [2000,  360,  553,  692,  774,  852],
+  [2500,  431,  666,  833,  931, 1024],
+  [3000,  502,  776,  970, 1085, 1194],
+  [3500,  574,  886, 1108, 1238, 1363],
+  [4000,  645,  994, 1244, 1391, 1532],
+  [4500,  708, 1090, 1363, 1524, 1678],
+  [5000,  765, 1180, 1476, 1651, 1818],
+  [6000,  879, 1357, 1697, 1898, 2090],
+  [7500, 1029, 1592, 1989, 2225, 2451],
+  [10000,1247, 1929, 2412, 2697, 2972],
+  [12500,1404, 2173, 2716, 3037, 3346],
+  [15000,1521, 2354, 2942, 3290, 3624],
+  [20000,1696, 2624, 3279, 3667, 4040],
+  [25000,1815, 2810, 3512, 3927, 4326],
+  [30000,1899, 2940, 3674, 4109, 4526],
+  [35000,1965, 3043, 3801, 4252, 4683],
+];
+
+function bcso(cAGI, kids){
+  kids = Math.max(1, Math.min(5, +kids|0));
+  if(cAGI <= 0) return 0;
+  if(cAGI >= SCHED[SCHED.length-1][0]){
+    // above schedule: linear extension at last segment slope
+    const a = SCHED[SCHED.length-2], b = SCHED[SCHED.length-1];
+    const slope = (b[kids] - a[kids]) / (b[0] - a[0]);
+    return Math.max(0, b[kids] + slope * (cAGI - b[0]));
+  }
+  for(let i=1; i<SCHED.length; i++){
+    if(cAGI <= SCHED[i][0]){
+      const a = SCHED[i-1], b = SCHED[i];
+      const t = (cAGI - a[0]) / (b[0] - a[0]);
+      return a[kids] + t * (b[kids] - a[kids]);
+    }
+  }
+  return 0;
+}
+
+const $ = id => document.getElementById(id);
+const v = id => parseFloat($(id).value) || 0;
+
+const prpSeg = $('prpSeg');
+let PRP = 'A';
+prpSeg.addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  PRP = b.dataset.v;
+  [...prpSeg.children].forEach(x => x.classList.toggle('on', x === b));
+  recompute();
+});
+
+function fmt(n){ return (n<0?'-$':'$') + Math.abs(Math.round(n)).toLocaleString(); }
+
+function adjIncome(prefix){
+  const gross = v(prefix+'Income');
+  const se    = v(prefix+'SE');
+  const co    = v(prefix+'CO');
+  const otherKids = +$(prefix+'Other').value || 0;
+
+  // Theoretical credit for in-home children: ~75% of what BCSO would be for those kids at this parent's income
+  let credit = 0;
+  if(otherKids > 0 && gross > 0){
+    const theo = bcso(Math.max(1000, gross), Math.min(5, otherKids));
+    credit = theo * 0.75;
+  }
+  return Math.max(0, gross - se - co - credit);
+}
+
+function recompute(){
+  const kids = +$('kids').value;
+  const aAGI = adjIncome('a');
+  const bAGI = adjIncome('b');
+  const cAGI = aAGI + bAGI;
+
+  const base = bcso(cAGI, kids);
+
+  const aHI = v('aHI'), bHI = v('bHI');
+  const aCC = v('aCC'), bCC = v('bCC');
+  const aMed= v('aMed'),bMed= v('bMed');
+  const addons = aHI+bHI+aCC+bCC+aMed+bMed;
+
+  const aShare = cAGI > 0 ? aAGI / cAGI : 0;
+  const bShare = 1 - aShare;
+
+  const ARP = (PRP === 'A') ? 'B' : 'A';
+  const arpDays = +$(ARP.toLowerCase()+'Days').value || 0;
+  const prpDays = +$(PRP.toLowerCase()+'Days').value || 0;
+  const totalDays = Math.max(1, arpDays + prpDays);
+  const arpDayShare = arpDays / totalDays;
+
+  // Parenting-time adjustment: only if ARP has >= 92 days
+  // Variable-multiplier: ARP credit = base * 1.75 * arpDayShare (capped to base)
+  let arpTimeCredit = 0;
+  let appliedAdj = false;
+  if(arpDays >= 92){
+    arpTimeCredit = Math.min(base, base * 1.75 * arpDayShare);
+    appliedAdj = true;
+  }
+
+  // Each parent's pro-rata share of (BCSO + add-ons)
+  const totalObligation = base + addons;
+  const aOblig = totalObligation * aShare;
+  const bOblig = totalObligation * bShare;
+
+  // Each parent already covers add-ons they pay directly
+  const aPaid = aHI + aCC + aMed;
+  const bPaid = bHI + bCC + bMed;
+
+  // ARP owes their share minus what they directly pay minus parenting-time credit
+  const arpObligRaw = (ARP==='A') ? aOblig : bOblig;
+  const arpPaid     = (ARP==='A') ? aPaid  : bPaid;
+  const arpNet = Math.max(0, arpObligRaw - arpPaid - arpTimeCredit);
+
+  // PRP add-ons paid above their share become an offset (they're owed extra)
+  const prpObligRaw = (PRP==='A') ? aOblig : bOblig;
+  const prpPaid     = (PRP==='A') ? aPaid  : bPaid;
+  const prpAddonOver = Math.max(0, prpPaid - (prpObligRaw - base*( PRP==='A' ? aShare : bShare )));
+  // Simplification: ARP also reimburses PRP for ARP's share of add-ons PRP fronted.
+  // Cleaner: compute add-on netting separately.
+  const addonNet = (addons>0)
+    ? ( (ARP==='A' ? aShare : bShare) * addons - arpPaid )
+    : 0;
+
+  // Final ARP -> PRP transfer = ARP share of (BCSO after time credit) + ARP share of add-ons not yet paid
+  const baseARPshare = base * (ARP==='A' ? aShare : bShare);
+  const baseAfterCredit = Math.max(0, baseARPshare - arpTimeCredit);
+  const transfer = Math.max(0, baseAfterCredit + Math.max(0, (ARP==='A'?aShare:bShare)*addons - arpPaid));
+
+  const out = $('resOut');
+  const rows = [
+    ['Parent A adjusted income', fmt(aAGI)+' /mo'],
+    ['Parent B adjusted income', fmt(bAGI)+' /mo'],
+    ['Combined adjusted income', fmt(cAGI)+' /mo'],
+    ['BCSO (' + kids + ' child' + (kids>1?'ren':'') + ')', fmt(base)+' /mo'],
+    ['Add-ons (HI + childcare + medical)', fmt(addons)+' /mo'],
+    ['Parent A share of cAGI', (aShare*100).toFixed(1)+'%'],
+    ['Parent B share of cAGI', (bShare*100).toFixed(1)+'%'],
+    ['Primary Residential Parent', 'Parent ' + PRP],
+    ['Alternate Residential Parent', 'Parent ' + ARP],
+    ['ARP days / yr', arpDays + ' (' + (arpDayShare*100).toFixed(0) + '%)'],
+    ['Parenting-time adjustment', appliedAdj ? 'applied (≥92 days)' : 'none'],
+    ['ARP time credit vs BCSO', fmt(arpTimeCredit)+' /mo'],
+  ];
+  out.innerHTML = rows.map(r=>`<div class="k">${r[0]}</div><div class="v">${r[1]}</div>`).join('');
+
+  $('totalAmt').textContent = fmt(transfer) + ' /mo';
+  $('totalWho').textContent = transfer > 0
+    ? 'Parent ' + ARP + ' pays Parent ' + PRP
+    : 'No transfer (ARP obligation fully offset)';
+}
+
+// fill schedule excerpt table
+(function(){
+  const body = $('schedBody');
+  body.innerHTML = SCHED.slice(1).map(r =>
+    '<tr><td>$'+r[0].toLocaleString()+'</td>' +
+    r.slice(1).map(x=>'<td>$'+x.toLocaleString()+'</td>').join('') +
+    '</tr>'
+  ).join('');
+})();
+
+document.querySelectorAll('input,select').forEach(el=>{
+  el.addEventListener('input', recompute);
+  el.addEventListener('change', recompute);
+});
+recompute();
+</script>
+</body>
+</html>
