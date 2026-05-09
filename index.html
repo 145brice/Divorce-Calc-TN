@@ -166,6 +166,7 @@
     <div class="total">
       <div class="amt" id="totalAmt">$0</div>
       <div class="who" id="totalWho">&mdash;</div>
+      <div id="orderNote" style="display:none;margin-top:8px;font-size:11px;color:var(--warn)"></div>
     </div>
 
     <details>
@@ -306,15 +307,34 @@ function recompute(){
   // Net transfer (positive = ARP → PRP, negative = PRP → ARP)
   const netTransfer = baseTransfer + addonTransfer;
 
+  // TN minimum order & zero-income handling
+  const arpGrossIncome = ARP === 'A' ? v('aIncome') : v('bIncome');
+  let finalTransfer = netTransfer;
+  let orderNote = '';
+
+  if(netTransfer >= 0){
+    if(arpGrossIncome === 0){
+      // ARP has literally $0 income — formula correctly returns $0 but courts
+      // typically impute income or enter a minimum; flag it.
+      finalTransfer = 0;
+      orderNote = '⚠ ARP gross income is $0 — court may impute income or enter minimum order';
+    } else if(netTransfer < 100){
+      // TN minimum child support order is $100/mo when ARP has any income
+      finalTransfer = 100;
+      orderNote = '↑ TN minimum order of $100/mo applied';
+    }
+  }
+  // Negative finalTransfer means PRP owes ARP (no minimum floor on that side)
+
   let payerLabel, payeeLabel, absTransfer;
-  if(netTransfer > 0.50){
+  if(finalTransfer > 0.50){
     payerLabel = 'Parent ' + ARP;
     payeeLabel = 'Parent ' + PRP;
-    absTransfer = netTransfer;
-  } else if(netTransfer < -0.50){
+    absTransfer = finalTransfer;
+  } else if(finalTransfer < -0.50){
     payerLabel = 'Parent ' + PRP;
     payeeLabel = 'Parent ' + ARP;
-    absTransfer = -netTransfer;
+    absTransfer = -finalTransfer;
   } else {
     payerLabel = null;
     absTransfer = 0;
@@ -327,8 +347,8 @@ function recompute(){
     ['Combined adjusted income', fmt(cAGI)+' /mo'],
     ['BCSO (' + kids + ' child' + (kids>1?'ren':'') + ')', fmt(base)+' /mo'],
     ['Add-ons total', fmt(addons)+' /mo'],
-    ['Parent A income share', (aShare*100).toFixed(1)+'%'],
-    ['Parent B income share', (bShare*100).toFixed(1)+'%'],
+    ['Parent A income share', cAGI > 0 ? (aShare*100).toFixed(1)+'%' : 'N/A'],
+    ['Parent B income share', cAGI > 0 ? (bShare*100).toFixed(1)+'%' : 'N/A'],
     ['Primary Residential Parent', 'Parent ' + PRP],
     ['Alternate Residential Parent', 'Parent ' + ARP],
     ['ARP days / yr', arpDays + ' (' + (arpDayShare*100).toFixed(0) + '%)'],
@@ -336,13 +356,16 @@ function recompute(){
     ['ARP time credit', fmt(arpTimeCredit)+' /mo'],
     ['Base transfer (ARP share − credit)', fmt(baseTransfer)+' /mo'],
     ['Add-on net transfer', fmt(addonTransfer)+' /mo'],
+    ['Formula net', fmt(netTransfer)+' /mo'],
   ];
   out.innerHTML = rows.map(r=>`<div class="k">${r[0]}</div><div class="v">${r[1]}</div>`).join('');
 
   $('totalAmt').textContent = fmt(absTransfer) + ' /mo';
   $('totalWho').textContent = payerLabel
     ? payerLabel + ' pays ' + payeeLabel
-    : 'No net transfer (obligations offset)';
+    : 'No net transfer';
+  $('orderNote').textContent = orderNote;
+  $('orderNote').style.display = orderNote ? 'block' : 'none';
 }
 
 // fill schedule excerpt table
