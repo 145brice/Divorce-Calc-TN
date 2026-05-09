@@ -278,8 +278,10 @@ function recompute(){
   const totalDays = Math.max(1, arpDays + prpDays);
   const arpDayShare = arpDays / totalDays;
 
-  // Parenting-time adjustment: only if ARP has >= 92 days
-  // Variable-multiplier: ARP credit = base * 1.75 * arpDayShare (capped to base)
+  const arpShare = ARP === 'A' ? aShare : bShare;
+  const prpShare = 1 - arpShare;
+
+  // Parenting-time credit (variable multiplier, applied when ARP >= 92 days/yr)
   let arpTimeCredit = 0;
   let appliedAdj = false;
   if(arpDays >= 92){
@@ -287,34 +289,36 @@ function recompute(){
     appliedAdj = true;
   }
 
-  // Each parent's pro-rata share of (BCSO + add-ons)
-  const totalObligation = base + addons;
-  const aOblig = totalObligation * aShare;
-  const bOblig = totalObligation * bShare;
+  // Add-ons each parent paid directly
+  const aPaidAddons = aHI + aCC + aMed;
+  const bPaidAddons = bHI + bCC + bMed;
+  const arpPaidAddons = ARP === 'A' ? aPaidAddons : bPaidAddons;
+  const prpPaidAddons = PRP === 'A' ? aPaidAddons : bPaidAddons;
 
-  // Each parent already covers add-ons they pay directly
-  const aPaid = aHI + aCC + aMed;
-  const bPaid = bHI + bCC + bMed;
+  // ARP's base obligation toward BCSO, minus parenting-time credit (positive = ARP owes PRP)
+  const baseTransfer = arpShare * base - arpTimeCredit;
 
-  // ARP owes their share minus what they directly pay minus parenting-time credit
-  const arpObligRaw = (ARP==='A') ? aOblig : bOblig;
-  const arpPaid     = (ARP==='A') ? aPaid  : bPaid;
-  const arpNet = Math.max(0, arpObligRaw - arpPaid - arpTimeCredit);
+  // Add-on cross-reimbursement:
+  //   ARP owes PRP for ARP's share of add-ons PRP fronted
+  //   PRP owes ARP for PRP's share of add-ons ARP fronted
+  const addonTransfer = arpShare * prpPaidAddons - prpShare * arpPaidAddons;
 
-  // PRP add-ons paid above their share become an offset (they're owed extra)
-  const prpObligRaw = (PRP==='A') ? aOblig : bOblig;
-  const prpPaid     = (PRP==='A') ? aPaid  : bPaid;
-  const prpAddonOver = Math.max(0, prpPaid - (prpObligRaw - base*( PRP==='A' ? aShare : bShare )));
-  // Simplification: ARP also reimburses PRP for ARP's share of add-ons PRP fronted.
-  // Cleaner: compute add-on netting separately.
-  const addonNet = (addons>0)
-    ? ( (ARP==='A' ? aShare : bShare) * addons - arpPaid )
-    : 0;
+  // Net transfer (positive = ARP → PRP, negative = PRP → ARP)
+  const netTransfer = baseTransfer + addonTransfer;
 
-  // Final ARP -> PRP transfer = ARP share of (BCSO after time credit) + ARP share of add-ons not yet paid
-  const baseARPshare = base * (ARP==='A' ? aShare : bShare);
-  const baseAfterCredit = Math.max(0, baseARPshare - arpTimeCredit);
-  const transfer = Math.max(0, baseAfterCredit + Math.max(0, (ARP==='A'?aShare:bShare)*addons - arpPaid));
+  let payerLabel, payeeLabel, absTransfer;
+  if(netTransfer > 0.50){
+    payerLabel = 'Parent ' + ARP;
+    payeeLabel = 'Parent ' + PRP;
+    absTransfer = netTransfer;
+  } else if(netTransfer < -0.50){
+    payerLabel = 'Parent ' + PRP;
+    payeeLabel = 'Parent ' + ARP;
+    absTransfer = -netTransfer;
+  } else {
+    payerLabel = null;
+    absTransfer = 0;
+  }
 
   const out = $('resOut');
   const rows = [
@@ -322,21 +326,23 @@ function recompute(){
     ['Parent B adjusted income', fmt(bAGI)+' /mo'],
     ['Combined adjusted income', fmt(cAGI)+' /mo'],
     ['BCSO (' + kids + ' child' + (kids>1?'ren':'') + ')', fmt(base)+' /mo'],
-    ['Add-ons (HI + childcare + medical)', fmt(addons)+' /mo'],
-    ['Parent A share of cAGI', (aShare*100).toFixed(1)+'%'],
-    ['Parent B share of cAGI', (bShare*100).toFixed(1)+'%'],
+    ['Add-ons total', fmt(addons)+' /mo'],
+    ['Parent A income share', (aShare*100).toFixed(1)+'%'],
+    ['Parent B income share', (bShare*100).toFixed(1)+'%'],
     ['Primary Residential Parent', 'Parent ' + PRP],
     ['Alternate Residential Parent', 'Parent ' + ARP],
     ['ARP days / yr', arpDays + ' (' + (arpDayShare*100).toFixed(0) + '%)'],
-    ['Parenting-time adjustment', appliedAdj ? 'applied (≥92 days)' : 'none'],
-    ['ARP time credit vs BCSO', fmt(arpTimeCredit)+' /mo'],
+    ['Parenting-time adjustment', appliedAdj ? 'applied (≥92 days)' : 'none (<92 days)'],
+    ['ARP time credit', fmt(arpTimeCredit)+' /mo'],
+    ['Base transfer (ARP share − credit)', fmt(baseTransfer)+' /mo'],
+    ['Add-on net transfer', fmt(addonTransfer)+' /mo'],
   ];
   out.innerHTML = rows.map(r=>`<div class="k">${r[0]}</div><div class="v">${r[1]}</div>`).join('');
 
-  $('totalAmt').textContent = fmt(transfer) + ' /mo';
-  $('totalWho').textContent = transfer > 0
-    ? 'Parent ' + ARP + ' pays Parent ' + PRP
-    : 'No transfer (ARP obligation fully offset)';
+  $('totalAmt').textContent = fmt(absTransfer) + ' /mo';
+  $('totalWho').textContent = payerLabel
+    ? payerLabel + ' pays ' + payeeLabel
+    : 'No net transfer (obligations offset)';
 }
 
 // fill schedule excerpt table
